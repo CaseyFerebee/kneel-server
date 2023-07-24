@@ -1,3 +1,6 @@
+import json
+import sqlite3
+from models import Orders, Metals, Styles, Sizes
 ORDERS = [
     {
         "metalsId": 1,
@@ -51,59 +54,115 @@ ORDERS = [
 
 
 def get_all_orders():
-    return ORDERS
+    # Open a connection to the database
+    with sqlite3.connect("./kneeldiamonds.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
+
+        db_cursor.execute("""
+        SELECT
+            o.id AS order_id,
+            o.metal_id,
+            o.style_id,
+            o.size_id,
+            m.id AS metal_id,
+            m.metal AS metal,
+            m.price AS metal_price,
+            s.id AS style_id,
+            s.style AS style,
+            s.price AS style_price,
+            si.id AS size_id,
+            si.carets AS carets,
+            si.price AS size_price
+        FROM Orders o
+        JOIN Metals m ON o.metal_id = m.id
+        JOIN Styles s ON o.style_id = s.id
+        JOIN Sizes si ON o.size_id = si.id;
+                """)
+
+        orders = []
+        dataset = db_cursor.fetchall()
+
+        for row in dataset:
+            order = Orders(row['order_id'], row['metal_id'], row['style_id'], row['size_id'])
+
+            metal = Metals(row['metal_id'], row['metal'], row['metal_price'])
+
+            style = Styles(row['style_id'], row['style'], row['style_price'])
+
+            size = Sizes(row['size_id'], row['carets'], row['size_price'])
+
+            order.metal = metal.__dict__
+            order.style = style.__dict__
+            order.size = size.__dict__
+            orders.append(order.__dict__)
+
+        return orders
 
 
-def get_single_order(id):
-    # Variable to hold the found animal, if it exists
-    requested_order = None
 
-    for order in ORDERS:
+def get_single_order(order_id):
+    with sqlite3.connect("./kneeldiamonds.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
 
-        if order["id"] == id:
-            requested_order = order
+        db_cursor.execute("""
+            SELECT o.id, o.metal_id, o.style_id, o.size_id
+            FROM Orders o
+            WHERE o.id = ?
+        """, (order_id,))
 
-    return requested_order
+        data = db_cursor.fetchone()
+
+        if data:
+            order = Orders(
+                data['id'],
+                data['metal_id'],
+                data['style_id'],
+                data['size_id']
+            )
+        return order.__dict__
 
 
-def create_order(order):
-    # Get the id value of the last animal in the list
-    max_id = ORDERS[-1]["id"]
 
-    # Add 1 to whatever that number is
-    new_id = max_id + 1
 
-    # Add an `id` property to the animal dictionary
-    order["id"] = new_id
+def create_order(new_order):
+    with sqlite3.connect("./kneeldiamonds.sqlite3") as conn:
+        db_cursor = conn.cursor()
 
-    # Add the animal dictionary to the list
-    ORDERS.append(order)
+        db_cursor.execute("""
+        INSERT INTO Orders
+            (metal_id, style_id, size_id)
+        VALUES
+            (?, ?, ?);
+        """, (new_order['metal_id'], new_order['style_id'], new_order['size_id']))
 
-    # Return the dictionary with `id` property added
-    return order
+        id = db_cursor.lastrowid
+
+        new_order['id'] = id
+
+    return new_order
+
 
 
 def delete_order(id):
-    # Initial -1 value for animal index, in case one isn't found
-    order_index = -1
+    with sqlite3.connect("./kneeldiamonds.sqlite3") as conn:
+        db_cursor = conn.cursor()
 
-    # Iterate the ANIMALS list, but use enumerate() so that you
-    # can access the index value of each item
-    for index, order in enumerate(ORDERS):
-        if order["id"] == id:
-            # Found the animal. Store the current index.
-            order_index = index
-
-    # If the animal was found, use pop(int) to remove it from list
-    if order_index >= 0:
-        ORDERS.pop(order_index)
+        db_cursor.execute("""
+        DELETE FROM Orders
+        WHERE id = ?
+        """, (id, ))
 
 
 def update_order(id, new_order):
-    # Iterate the ANIMALS list, but use enumerate() so that
-    # you can access the index value of each item.
-    for index, order in enumerate(ORDERS):
-        if order["id"] == id:
-            # Found the animal. Update the value.
-            ORDERS[index] = new_order
-            break
+    with sqlite3.connect("./kneeldiamonds.sqlite3") as conn:
+        db_cursor = conn.cursor()
+
+        db_cursor.execute("""
+        UPDATE Orders
+        SET metal_id = ?,
+            style_id = ?,
+            size_id = ?
+        WHERE id = ?;
+        """, (new_order['metal_id'], new_order['style_id'], new_order['size_id'], id))

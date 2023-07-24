@@ -1,4 +1,4 @@
-class Metal():
+class Metals():
 
     def __init__(self, id, metal, price):
         self.id = id

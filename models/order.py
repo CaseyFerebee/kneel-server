@@ -1,7 +1,10 @@
-class Order():
+class Orders():
 
-    def __init__(self, id, metals_id, style_id, sizes_id):
+    def __init__(self, id, metal_id, style_id, size_id):
         self.id = id
-        self.metals_id = metals_id
+        self.metal_id = metal_id
         self.style_id = style_id
-        self.sizes_id = sizes_id
+        self.size_id = size_id
+        self.metal = None
+        self.style = None
+        self.size = None

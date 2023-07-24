@@ -1,3 +1,6 @@
+import sqlite3
+from models import Metals
+
 METALS = [
     {
         "id": 1,
@@ -28,22 +31,59 @@ METALS = [
 
 
 def get_all_metals():
-    return METALS
+    # Open a connection to the database
+    with sqlite3.connect("./kneeldiamonds.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
+
+        # Execute the SQL query to fetch all metals from the database
+        db_cursor.execute("SELECT * FROM Metals")
+
+        # Fetch all rows from the query result
+        rows = db_cursor.fetchall()
+
+        # Initialize an empty list to store the metals
+        metals = []
+
+        # Iterate over the rows and create a dictionary for each metal
+        # using the column names as keys and values from the row as values
+        for row in rows:
+            metal =  Metals(
+                row["id"],
+                row["metal"],
+                row["price"]
+            )
+            metals.append(metal.__dict__)
+
+        return metals
 
 
 def get_single_metal(id):
-    # Variable to hold the found animal, if it exists
-    requested_metal = None
+    # Connect to the database
+    with sqlite3.connect("./kneeldiamonds.sqlite3") as conn:
+        conn.row_factory = sqlite3.Row
+        db_cursor = conn.cursor()
 
-    # Iterate the ANIMALS list above. Very similar to the
-    # for..of loops you used in JavaScript.
-    for metal in METALS:
-        # Dictionaries in Python use [] notation to find a key
-        # instead of the dot notation that JavaScript used.
-        if metal["id"] == id:
-            requested_metal = metal
+        db_cursor.execute("""
+            SELECT
+            m.id,
+            m.metal,
+            m.price
+            FROM Metals m
+            WHERE id = ?
+        """, (id,))
 
-    return requested_metal
+        data = db_cursor.fetchone()
+
+        if data:
+            # Create a dictionary representing the metal
+            metal = Metals(
+                data["id"],
+                data["metal"],
+                data["price"]
+            )
+
+    return metal.__dict__
 
 
 def create_metal(metal):
@@ -80,10 +120,24 @@ def delete_metal(id):
 
 
 def update_metal(id, new_metal):
-    # Iterate the ANIMALS list, but use enumerate() so that
-    # you can access the index value of each item.
-    for index, metal in enumerate(METALS):
-        if metal["id"] == id:
-            # Found the animal. Update the value.
-            METALS[index] = new_metal
-            break
+    with sqlite3.connect("./kneeldiamonds.sqlite3") as conn:
+        db_cursor = conn.cursor()
+
+        db_cursor.execute("""
+        UPDATE Metals
+            SET
+                metal = ?,
+                price = ?
+        WHERE id = ?
+        """, (new_metal['metal'], new_metal['price'], id, ))
+
+        # Were any rows affected?
+        # Did the client send an `id` that exists?
+        rows_affected = db_cursor.rowcount
+
+    if rows_affected == 0:
+        # Forces 404 response by main module
+        return False
+    else:
+        # Forces 204 response by main module
+        return True
