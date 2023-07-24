@@ -1,10 +1,10 @@
 import json
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
 from views import (get_all_metals, get_single_metal,
-                    get_all_orders, get_single_order,
-                    update_order, delete_order, create_order,
+                    get_all_orders, get_single_order, delete_order, create_order,
                     get_all_sizes, get_single_size,
-                    get_single_style, get_all_styles)
+                    get_single_style, get_all_styles, update_metal)
 
 
 class HandleRequests(BaseHTTPRequestHandler):
@@ -12,22 +12,21 @@ class HandleRequests(BaseHTTPRequestHandler):
     """
 
     def parse_url(self, path):
-
-        path_params = path.split("/")
+        """Parse the url into the resource and id"""
+        parsed_url = urlparse(path)
+        path_params = parsed_url.path.split('/')  # ['', 'animals', 1]
         resource = path_params[1]
-        id = None
 
-        # Try to get the item at index 2
+        if parsed_url.query:
+            query = parse_qs(parsed_url.query)
+            return (resource, query)
+
+        pk = None
         try:
-            # Convert the string "1" to the integer 1
-            # This is the new parseInt()
-            id = int(path_params[2])
-        except IndexError:
-            pass  # No route parameter exists: /animals
-        except ValueError:
-            pass  # Request had trailing slash: /animals/
-
-        return (resource, id)
+            pk = int(path_params[2])
+        except (IndexError, ValueError):
+            pass
+        return (resource, pk)
 
     def do_GET(self):
         """Handles GET requests to the server """
@@ -82,17 +81,25 @@ class HandleRequests(BaseHTTPRequestHandler):
 
     def do_PUT(self):
         """Handles PUT requests to the server """
-        self._set_headers(204)
         content_len = int(self.headers.get('content-length', 0))
         post_body = self.rfile.read(content_len)
         post_body = json.loads(post_body)
 
         (resource, id) = self.parse_url(self.path)
 
-        if resource == "orders":
-            update_order(id, post_body)
+        success = False
 
-        self.do_PUT()
+        if resource == "metals":
+            success = update_metal(id, post_body)
+
+        if success:
+            self._set_headers(204)
+        else:
+            self._set_headers(404)
+
+        self.wfile.write("".encode())
+
+
 
     def _set_headers(self, status):
         """Sets the status code, Content-Type and Access-Control-Allow-Origin
